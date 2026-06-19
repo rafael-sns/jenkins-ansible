@@ -4,7 +4,7 @@
   gather_facts: false
 
   vars:
-    log_dest_dir: "{{ lookup('env', 'WORKSPACE') | default('/tmp', true) }}/artifacts/host-2"
+    log_dest_dir: "{{ workspace_dir | default(lookup('env', 'WORKSPACE') | default('/tmp', true)) }}/artifacts/host-2"
 
   tasks:
     - name: Ensure artifact destination exists on controller

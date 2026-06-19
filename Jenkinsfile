@@ -12,13 +12,18 @@ properties([
 
 node('ansible-pod') {
 
+    // pwd() após checkout é mais confiável que env.WORKSPACE em agentes customizados
+    def projectDir = ''
+
     stage('Sincronizar repositório') {
         checkout scm
         sh 'git pull origin "${BRANCH_NAME:-main}" || true'
+        projectDir = pwd()
+        echo "Diretório do projeto: ${projectDir}"
     }
 
     stage('Resolver período') {
-        def resolver = load "${env.WORKSPACE}/scripts/resolve-log-period.groovy"
+        def resolver = load "${projectDir}/scripts/resolve-log-period.groovy"
         def resolved = resolver(params.LOG_PERIOD)
 
         env.LOG_PERIOD = resolved.logPeriod
@@ -28,10 +33,9 @@ node('ansible-pod') {
     }
 
     stage('Testar conexão') {
-        def inventory = readYaml file: "${env.WORKSPACE}/job/inventories/hosts.yaml"
-        def loadInventory = load "${env.WORKSPACE}/scripts/load-inventory.groovy"
+        def inventory = readYaml file: "${projectDir}/job/inventories/hosts.yaml"
+        def loadInventory = load "${projectDir}/scripts/load-inventory.groovy"
         def hosts = loadInventory(inventory.all.hosts)
-        def testPlaybook = 'job/playbooks/playbook-test-connectivity.yaml'
 
         hosts.each { host ->
             echo "Teste SSH ${host.name} → credencial: ${host.credentialId}"
@@ -39,9 +43,10 @@ node('ansible-pod') {
             sshagent([host.credentialId]) {
                 sh """
                     set -e
+                    cd '${projectDir}'
                     ansible-playbook \\
                       -i job/inventories/hosts.yaml \\
-                      ${testPlaybook} \\
+                      job/playbooks/playbook-test-connectivity.yaml \\
                       --limit ${host.name}
                 """
             }
@@ -49,8 +54,8 @@ node('ansible-pod') {
     }
 
     stage('Executar playbooks') {
-        def inventory = readYaml file: "${env.WORKSPACE}/job/inventories/hosts.yaml"
-        def loadInventory = load "${env.WORKSPACE}/scripts/load-inventory.groovy"
+        def inventory = readYaml file: "${projectDir}/job/inventories/hosts.yaml"
+        def loadInventory = load "${projectDir}/scripts/load-inventory.groovy"
         def hosts = loadInventory(inventory.all.hosts)
 
         hosts.each { host ->
@@ -61,18 +66,21 @@ node('ansible-pod') {
             sshagent([host.credentialId]) {
                 sh """
                     set -e
+                    cd '${projectDir}'
                     test -f ${playbookPath} || { echo "Playbook não encontrado: ${playbookPath}"; exit 1; }
                     ansible-playbook \\
                       -i job/inventories/hosts.yaml \\
                       ${playbookPath} \\
                       --limit ${host.name} \\
-                      -e "log_period=${env.LOG_PERIOD} log_date=${env.LOG_DATE} log_source_path=${logSourcePath}"
+                      -e "log_period=${env.LOG_PERIOD} log_date=${env.LOG_DATE} log_source_path=${logSourcePath} workspace_dir=${projectDir}"
                 """
             }
         }
     }
 
     stage('Publicar artefatos') {
-        archiveArtifacts artifacts: 'artifacts/**/*', allowEmptyArchive: true
+        dir(projectDir) {
+            archiveArtifacts artifacts: 'artifacts/**/*', allowEmptyArchive: true
+        }
     }
 }

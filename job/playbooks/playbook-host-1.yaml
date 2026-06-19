@@ -1,0 +1,27 @@
+---
+- name: Collect logs from host-1
+  hosts: host-1
+  gather_facts: false
+
+  vars:
+    log_dest_dir: "{{ lookup('env', 'WORKSPACE') | default('/tmp', true) }}/artifacts/host-1"
+
+  tasks:
+    - name: Ensure artifact destination exists on controller
+      ansible.builtin.file:
+        path: "{{ log_dest_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Show resolved log period
+      ansible.builtin.debug:
+        msg: "host-1 | period={{ log_period }} date={{ log_date | default('n/a') }} source={{ log_source_path }}"
+
+    - name: Placeholder — fetch logs from remote host
+      ansible.builtin.debug:
+        msg: >-
+          TODO: implement log collection for {{ log_period }}
+          (date={{ log_date | default('n/a') }}) from {{ log_source_path }}
+      when: log_period is defined

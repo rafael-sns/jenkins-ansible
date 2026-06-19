@@ -1,0 +1,10 @@
+all:
+  hosts:
+    host-1:
+      ansible_host: 10.0.0.1
+      ansible_user: deploy
+      jenkins_ssh_credential: host-1-ssh
+    host-2:
+      ansible_host: 10.0.0.2
+      ansible_user: deploy
+      jenkins_ssh_credential: host-2-ssh

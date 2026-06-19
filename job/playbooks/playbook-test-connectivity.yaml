@@ -1,0 +1,23 @@
+---
+- name: Teste inicial de conexão SSH
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Executar pwd
+      ansible.builtin.command: pwd
+      register: pwd_result
+      changed_when: false
+
+    - name: Exibir diretório atual
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} ({{ ansible_host }}) → {{ pwd_result.stdout }}"
+
+    - name: Executar df -h
+      ansible.builtin.command: df -h
+      register: df_result
+      changed_when: false
+
+    - name: Exibir uso de disco
+      ansible.builtin.debug:
+        msg: "{{ df_result.stdout_lines }}"
